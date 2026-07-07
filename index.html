@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Praktikumsleitsystem · Sommer 2026</title>
+<style>
+  :root{
+    --bg:#eef1ee;
+    --surface:#FFFFFF;
+    --ink:#212a22;
+    --muted:#6b756c;
+    --line:#dfe4df;
+    --gruen:#2e7d32;          /* Newsletter-Grün */
+    --gruen-dunkel:#1b5e20;
+    --gruen-soft:#e6f1e7;
+    --laerm:#1565c0;   --laerm-soft:#e7eff9;
+    --strahlen:#b26a00; --strahlen-soft:#f9efdd;
+    --chemie:#6a1b9a;  --chemie-soft:#f1e7f7;
+    --offen:#8a948d;   --offen-soft:#edefee;
+    --radius:10px;
+    --schatten:0 2px 8px rgba(0,0,0,0.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none !important} }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:16px;
+    line-height:1.5;
+  }
+  a{color:var(--gruen)}
+  .wrap{max-width:880px;margin:0 auto;padding:24px 20px 80px}
+
+  /* ---------- Masthead (Newsletter-Kopf) ---------- */
+  header{
+    background:linear-gradient(135deg,var(--gruen) 0%,var(--gruen-dunkel) 100%);
+    color:#fff;border-radius:var(--radius);box-shadow:var(--schatten);
+    padding:32px 32px 28px;margin-bottom:18px;
+  }
+  .eyebrow{
+    font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;
+    opacity:.85;margin-bottom:8px;font-weight:600;
+  }
+  h1{
+    font-size:clamp(27px,5vw,40px);line-height:1.1;
+    font-weight:700;letter-spacing:-0.01em;
+  }
+  .zeitraum{
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
+    font-size:14px;opacity:.9;margin-top:10px;
+  }
+
+  /* ---------- Steuerleiste ---------- */
+  .toolbar{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:14px 0 10px;position:sticky;top:0;background:var(--bg);z-index:5;
+    border-bottom:1px solid var(--line);
+  }
+  .chip{
+    font-weight:600;font-size:13.5px;font-family:inherit;
+    border:1.5px solid var(--line);background:var(--surface);color:var(--ink);
+    border-radius:999px;padding:7px 14px;cursor:pointer;transition:all .15s;
+    box-shadow:var(--schatten);
+  }
+  .chip:hover{border-color:var(--gruen)}
+  .chip:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{
+    outline:2.5px solid var(--gruen);outline-offset:2px;
+  }
+  .chip[data-active="true"]{background:var(--gruen);border-color:var(--gruen);color:#fff}
+  .chip .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:1px}
+  .spacer{flex:1}
+  .btn{
+    font-weight:700;font-size:13.5px;font-family:inherit;
+    border:none;border-radius:8px;padding:9px 16px;cursor:pointer;transition:all .15s;
+    box-shadow:var(--schatten);
+  }
+  .btn-edit{background:var(--surface);border:1.5px solid var(--gruen);color:var(--gruen)}
+  .btn-edit:hover{background:var(--gruen);color:#fff}
+  .btn-save{background:var(--gruen);color:#fff;display:none}
+  .btn-save:hover{background:var(--gruen-dunkel)}
+  body.editing .btn-save{display:inline-block}
+  .edit-hinweis{
+    display:none;width:100%;font-size:13.5px;color:var(--muted);
+    padding:8px 0 4px;
+  }
+  body.editing .edit-hinweis{display:block}
+
+  /* ---------- Wochen & Tage ---------- */
+  .woche{display:grid;grid-template-columns:64px 1fr;gap:0 18px;margin-top:34px}
+  .kw{
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
+    font-size:13px;color:var(--muted);
+    writing-mode:vertical-rl;transform:rotate(180deg);
+    border-right:2px solid var(--gruen-soft);padding:4px 0;
+    text-align:center;letter-spacing:.12em;
+  }
+  .tage{display:flex;flex-direction:column;gap:12px}
+
+  .tag{
+    background:var(--surface);border-radius:var(--radius);
+    box-shadow:var(--schatten);
+    border-left:5px solid var(--tag-farbe,var(--offen));
+    padding:14px 18px;transition:opacity .15s;
+  }
+  .tag.gedimmt{opacity:.3}
+  .tag-kopf{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px}
+  .tag-datum{
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
+    font-size:14px;color:var(--muted);
+  }
+  .tag-wtag{font-weight:700;font-size:15.5px}
+  .badge{
+    margin-left:auto;
+    font-weight:600;font-size:12.5px;
+    padding:3px 11px;border-radius:999px;
+    background:var(--tag-soft,var(--offen-soft));color:var(--tag-farbe,var(--offen));
+  }
+  .tag-felder{margin-top:10px;display:grid;gap:6px}
+  .feld{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:baseline}
+  .feld-label{
+    font-size:12px;letter-spacing:.05em;font-weight:600;
+    text-transform:uppercase;color:var(--muted);padding-top:2px;
+  }
+  .feld-wert{white-space:pre-wrap}
+  .feld-wert.leer{color:var(--offen);font-style:italic}
+
+  select,input[type=text],textarea{
+    font-family:inherit;font-size:15px;color:var(--ink);
+    border:1.5px solid var(--line);border-radius:7px;background:#fafbfa;
+    padding:6px 10px;width:100%;
+  }
+  textarea{resize:vertical;min-height:56px}
+  select:hover,input:hover,textarea:hover{border-color:var(--gruen)}
+
+  footer{
+    margin-top:56px;padding:14px 18px;
+    background:var(--surface);border-radius:var(--radius);box-shadow:var(--schatten);
+    font-size:13.5px;color:var(--muted);
+  }
+
+  @media (max-width:600px){
+    header{padding:24px 20px}
+    .woche{grid-template-columns:1fr;gap:8px}
+    .kw{writing-mode:horizontal-tb;transform:none;border-right:none;
+        border-bottom:2px solid var(--gruen-soft);text-align:left;padding:0 0 4px}
+    .feld{grid-template-columns:1fr}
+    .badge{margin-left:0}
+  }
+  @media print{
+    .toolbar,footer{display:none}
+    body{background:#fff}
+    header{background:var(--gruen);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .tag{break-inside:avoid;box-shadow:none;border:1px solid var(--line);
+         border-left:5px solid var(--tag-farbe,var(--offen))}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     PLANDATEN
+     Diese Daten können direkt hier im JSON-Block bearbeitet werden
+     ODER bequemer über den Button "Bearbeiten" auf der Seite selbst
+     (danach "index.html herunterladen" und die Datei im Repository
+     ersetzen).
+     dept: "laerm" | "strahlen" | "chemie" | ""  (leer = noch offen)
+     ============================================================ -->
+<script id="schedule-data" type="application/json">
+{}
+</script>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Land Steiermark · Abteilung 15</div>
+    <h1>Praktikumsleitsystem</h1>
+    <div class="zeitraum">Sommer 2026 · 13.07. – 11.08. · Montag bis Freitag</div>
+  </header>
+
+  <div class="toolbar" id="toolbar">
+    <button class="chip" data-filter="alle" data-active="true">Alle</button>
+    <button class="chip" data-filter="laerm"><span class="dot" style="background:var(--laerm)"></span>Lärmschutz</button>
+    <button class="chip" data-filter="strahlen"><span class="dot" style="background:var(--strahlen)"></span>Strahlenschutz</button>
+    <button class="chip" data-filter="chemie"><span class="dot" style="background:var(--chemie)"></span>Abfall- u. Abwassertechnik, Chemie</button>
+    <span class="spacer"></span>
+    <button class="btn btn-edit" id="btnEdit">Bearbeiten</button>
+    <button class="btn btn-save" id="btnSave">index.html herunterladen</button>
+    <div class="edit-hinweis">
+      Änderungen werden erst sichtbar, wenn die heruntergeladene <strong>index.html</strong> im
+      GitHub-Repository ersetzt wird (Repository → Datei <em>index.html</em> → „Edit" bzw. „Upload files").
+      Bitte keine personenbezogenen Daten (Namen, Telefonnummern) eintragen.
+    </div>
+  </div>
+
+  <main id="plan"></main>
+
+  <footer>
+    Interner Koordinationsplan – enthält bewusst keine personenbezogenen Daten.
+    Änderungswünsche bitte an die Bereichsleitung Schall- und Erschütterungstechnik.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Konfiguration ---------- */
+  var START = "2026-07-13";
+  var ENDE  = "2026-08-11";
+  var DEPTS = {
+    laerm:    { name: "Lärmschutz" },
+    strahlen: { name: "Strahlenschutz" },
+    chemie:   { name: "Abfall- u. Abwassertechnik, Chemie" },
+    "":       { name: "– noch offen –" }
+  };
+  var WTAGE_LANG = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+
+  /* ---------- Daten laden ---------- */
+  var dataEl = document.getElementById("schedule-data");
+  var gespeichert = {};
+  try { gespeichert = JSON.parse(dataEl.textContent) || {}; } catch(e){ gespeichert = {}; }
+
+  function isoTage(start, ende){
+    var liste = [], d = new Date(start + "T12:00:00"), e = new Date(ende + "T12:00:00");
+    while(d <= e){
+      var wt = d.getDay();
+      if(wt >= 1 && wt <= 5) liste.push(d.toISOString().slice(0,10));
+      d.setDate(d.getDate()+1);
+    }
+    return liste;
+  }
+  function kalenderwoche(isoDatum){
+    var d = new Date(isoDatum + "T12:00:00");
+    var ziel = new Date(d.valueOf());
+    ziel.setDate(ziel.getDate() - ((d.getDay()+6)%7) + 3); // Donnerstag der Woche
+    var jan4 = new Date(ziel.getFullYear(),0,4);
+    return 1 + Math.round(((ziel - jan4)/86400000 - 3 + ((jan4.getDay()+6)%7)) / 7);
+  }
+  function fmt(isoDatum){
+    var t = isoDatum.split("-");
+    return t[2] + "." + t[1] + "." + t[0].slice(2);
+  }
+
+  var state = {};
+  isoTage(START, ENDE).forEach(function(tag){
+    var s = gespeichert[tag] || {};
+    state[tag] = {
+      dept: (s.dept in DEPTS) ? s.dept : "",
+      ort: s.ort || "",
+      aufgaben: s.aufgaben || ""
+    };
+  });
+
+  var bearbeiten = false;
+  var filter = "alle";
+
+  /* ---------- Rendern ---------- */
+  function render(){
+    var plan = document.getElementById("plan");
+    plan.innerHTML = "";
+    var wochen = {};
+    Object.keys(state).forEach(function(tag){
+      var kw = kalenderwoche(tag);
+      (wochen[kw] = wochen[kw] || []).push(tag);
+    });
+    Object.keys(wochen).sort(function(a,b){return a-b}).forEach(function(kw){
+      var sec = document.createElement("section");
+      sec.className = "woche";
+      var kwEl = document.createElement("div");
+      kwEl.className = "kw";
+      kwEl.textContent = "KW " + kw;
+      var tage = document.createElement("div");
+      tage.className = "tage";
+      wochen[kw].forEach(function(tag){ tage.appendChild(tagKarte(tag)); });
+      sec.appendChild(kwEl);
+      sec.appendChild(tage);
+      plan.appendChild(sec);
+    });
+    filterAnwenden();
+  }
+
+  function tagKarte(tag){
+    var d = state[tag];
+    var karte = document.createElement("article");
+    karte.className = "tag";
+    karte.dataset.tag = tag;
+    karte.dataset.dept = d.dept;
+    var farbe = d.dept || "offen";
+    karte.style.setProperty("--tag-farbe", "var(--" + farbe + ")");
+    karte.style.setProperty("--tag-soft",  "var(--" + farbe + "-soft)");
+
+    var kopf = document.createElement("div");
+    kopf.className = "tag-kopf";
+    var wt = new Date(tag + "T12:00:00").getDay();
+    kopf.innerHTML =
+      '<span class="tag-wtag">' + WTAGE_LANG[wt] + '</span>' +
+      '<span class="tag-datum">' + fmt(tag) + '</span>';
+
+    if(bearbeiten){
+      var sel = document.createElement("select");
+      sel.setAttribute("aria-label","Fachbereich am " + fmt(tag));
+      ["","laerm","strahlen","chemie"].forEach(function(k){
+        var o = document.createElement("option");
+        o.value = k; o.textContent = DEPTS[k].name;
+        if(k === d.dept) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.style.maxWidth = "320px";
+      sel.style.marginLeft = "auto";
+      sel.addEventListener("change", function(){ d.dept = sel.value; render(); });
+      kopf.appendChild(sel);
+    } else {
+      var badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = DEPTS[d.dept].name;
+      kopf.appendChild(badge);
+    }
+    karte.appendChild(kopf);
+
+    var felder = document.createElement("div");
+    felder.className = "tag-felder";
+    felder.appendChild(feld("Treffpunkt / Zeit", "ort", d, tag, false));
+    felder.appendChild(feld("Aufgaben", "aufgaben", d, tag, true));
+    karte.appendChild(felder);
+    return karte;
+  }
+
+  function feld(label, key, d, tag, mehrzeilig){
+    var zeile = document.createElement("div");
+    zeile.className = "feld";
+    var lab = document.createElement("div");
+    lab.className = "feld-label";
+    lab.textContent = label;
+    zeile.appendChild(lab);
+    if(bearbeiten){
+      var inp = mehrzeilig ? document.createElement("textarea")
+                           : document.createElement("input");
+      if(!mehrzeilig){
+        inp.type = "text";
+        inp.placeholder = "z. B. 08:00, Empfang Landhausgasse";
+      } else {
+        inp.placeholder = "Kurzbeschreibung der Tagesaufgaben …";
+      }
+      inp.value = d[key];
+      inp.setAttribute("aria-label", label + " am " + fmt(tag));
+      inp.addEventListener("input", function(){ d[key] = inp.value; });
+      zeile.appendChild(inp);
+    } else {
+      var w = document.createElement("div");
+      w.className = "feld-wert" + (d[key] ? "" : " leer");
+      w.textContent = d[key] || "– noch offen –";
+      zeile.appendChild(w);
+    }
+    return zeile;
+  }
+
+  /* ---------- Filter ---------- */
+  function filterAnwenden(){
+    document.querySelectorAll(".tag").forEach(function(k){
+      k.classList.toggle("gedimmt", filter !== "alle" && k.dataset.dept !== filter);
+    });
+  }
+  document.getElementById("toolbar").addEventListener("click", function(ev){
+    var chip = ev.target.closest(".chip");
+    if(!chip) return;
+    filter = chip.dataset.filter;
+    document.querySelectorAll(".chip").forEach(function(c){
+      c.dataset.active = (c === chip) ? "true" : "false";
+    });
+    filterAnwenden();
+  });
+
+  /* ---------- Bearbeiten & Export ---------- */
+  var btnEdit = document.getElementById("btnEdit");
+  btnEdit.addEventListener("click", function(){
+    bearbeiten = !bearbeiten;
+    document.body.classList.toggle("editing", bearbeiten);
+    btnEdit.textContent = bearbeiten ? "Vorschau" : "Bearbeiten";
+    render();
+  });
+
+  document.getElementById("btnSave").addEventListener("click", function(){
+    var warBearbeiten = bearbeiten;
+    bearbeiten = false; render();               // saubere Ansicht serialisieren
+    var klon = document.documentElement.cloneNode(true);
+    klon.querySelector("#schedule-data").textContent =
+      "\n" + JSON.stringify(state, null, 2) + "\n";
+    klon.querySelector("body").classList.remove("editing");
+    var html = "<!DOCTYPE html>\n" + klon.outerHTML;
+    var blob = new Blob([html], {type:"text/html;charset=utf-8"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "index.html";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+    bearbeiten = warBearbeiten;
+    if(bearbeiten){ document.body.classList.add("editing"); render(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
