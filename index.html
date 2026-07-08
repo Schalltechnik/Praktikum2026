@@ -35,7 +35,7 @@
   a{color:var(--gruen)}
   .wrap{max-width:880px;margin:0 auto;padding:24px 20px 80px}
 
-  /* ---------- Masthead (Newsletter-Kopf) ---------- */
+  /* ---------- Masthead ---------- */
   header{
     background:linear-gradient(135deg,var(--gruen) 0%,var(--gruen-dunkel) 100%);
     color:#fff;border-radius:var(--radius);box-shadow:var(--schatten);
@@ -78,16 +78,20 @@
     border:none;border-radius:8px;padding:9px 16px;cursor:pointer;transition:all .15s;
     box-shadow:var(--schatten);
   }
+  .btn:disabled{opacity:.45;cursor:default}
   .btn-edit{background:var(--surface);border:1.5px solid var(--gruen);color:var(--gruen)}
   .btn-edit:hover{background:var(--gruen);color:#fff}
   .btn-save{background:var(--gruen);color:#fff;display:none}
-  .btn-save:hover{background:var(--gruen-dunkel)}
+  .btn-save:hover:not(:disabled){background:var(--gruen-dunkel)}
   body.editing .btn-save{display:inline-block}
-  .edit-hinweis{
-    display:none;width:100%;font-size:13.5px;color:var(--muted);
-    padding:8px 0 4px;
+  .btn-reload{background:var(--surface);border:1.5px solid var(--line);color:var(--muted)}
+  .btn-reload:hover{border-color:var(--gruen);color:var(--gruen)}
+  body.editing .btn-reload{display:none}
+  .status{
+    width:100%;font-size:13px;color:var(--muted);padding:6px 0 2px;
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
   }
-  body.editing .edit-hinweis{display:block}
+  .status.fehler{color:#b3261e;font-family:inherit;font-size:13.5px}
 
   /* ---------- Wochen & Tage ---------- */
   .woche{display:grid;grid-template-columns:64px 1fr;gap:0 18px;margin-top:34px}
@@ -161,18 +165,6 @@
 </head>
 <body>
 
-<!-- ============================================================
-     PLANDATEN
-     Diese Daten können direkt hier im JSON-Block bearbeitet werden
-     ODER bequemer über den Button "Bearbeiten" auf der Seite selbst
-     (danach "index.html herunterladen" und die Datei im Repository
-     ersetzen).
-     dept: "laerm" | "strahlen" | "chemie" | ""  (leer = noch offen)
-     ============================================================ -->
-<script id="schedule-data" type="application/json">
-{}
-</script>
-
 <div class="wrap">
   <header>
     <div class="eyebrow">Land Steiermark · Abteilung 15</div>
@@ -187,19 +179,16 @@
     <button class="chip" data-filter="chemie"><span class="dot" style="background:var(--chemie)"></span>Abfall- u. Abwassertechnik, Chemie</button>
     <span class="spacer"></span>
     <button class="btn btn-edit" id="btnEdit">Bearbeiten</button>
-    <button class="btn btn-save" id="btnSave">index.html herunterladen</button>
-    <div class="edit-hinweis">
-      Änderungen werden erst sichtbar, wenn die heruntergeladene <strong>index.html</strong> im
-      GitHub-Repository ersetzt wird (Repository → Datei <em>index.html</em> → „Edit" bzw. „Upload files").
-      Bitte keine personenbezogenen Daten (Namen, Telefonnummern) eintragen.
-    </div>
+    <button class="btn btn-save" id="btnSave" disabled>Speichern</button>
+    <button class="btn btn-reload" id="btnReload">Neu laden</button>
+    <div class="status" id="status">Lade Plandaten …</div>
   </div>
 
   <main id="plan"></main>
 
   <footer>
-    Interner Koordinationsplan – enthält bewusst keine personenbezogenen Daten.
-    Änderungswünsche bitte an die Bereichsleitung Schall- und Erschütterungstechnik.
+    Interner Koordinationsplan – bitte keine personenbezogenen Daten (Namen, Telefonnummern) eintragen.
+    Änderungswünsche an die Bereichsleitung Schall- und Erschütterungstechnik.
   </footer>
 </div>
 
@@ -207,7 +196,14 @@
 (function(){
   "use strict";
 
-  /* ---------- Konfiguration ---------- */
+  /* ============================================================
+     KONFIGURATION – nur diese eine Zeile anpassen!
+
+     API_URL = die Web-App-URL des Google Apps Script
+     (endet auf /exec). Einrichtung siehe Datei Code.gs.
+     ============================================================ */
+  var API_URL = "HIER_WEBAPP_URL_EINFUEGEN";
+
   var START = "2026-07-13";
   var ENDE  = "2026-08-11";
   var DEPTS = {
@@ -218,11 +214,7 @@
   };
   var WTAGE_LANG = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 
-  /* ---------- Daten laden ---------- */
-  var dataEl = document.getElementById("schedule-data");
-  var gespeichert = {};
-  try { gespeichert = JSON.parse(dataEl.textContent) || {}; } catch(e){ gespeichert = {}; }
-
+  /* ---------- Hilfsfunktionen ---------- */
   function isoTage(start, ende){
     var liste = [], d = new Date(start + "T12:00:00"), e = new Date(ende + "T12:00:00");
     while(d <= e){
@@ -235,7 +227,7 @@
   function kalenderwoche(isoDatum){
     var d = new Date(isoDatum + "T12:00:00");
     var ziel = new Date(d.valueOf());
-    ziel.setDate(ziel.getDate() - ((d.getDay()+6)%7) + 3); // Donnerstag der Woche
+    ziel.setDate(ziel.getDate() - ((d.getDay()+6)%7) + 3);
     var jan4 = new Date(ziel.getFullYear(),0,4);
     return 1 + Math.round(((ziel - jan4)/86400000 - 3 + ((jan4.getDay()+6)%7)) / 7);
   }
@@ -243,19 +235,36 @@
     var t = isoDatum.split("-");
     return t[2] + "." + t[1] + "." + t[0].slice(2);
   }
+  function uhrzeit(){
+    var j = new Date();
+    return ("0"+j.getHours()).slice(-2) + ":" + ("0"+j.getMinutes()).slice(-2);
+  }
 
-  var state = {};
-  isoTage(START, ENDE).forEach(function(tag){
-    var s = gespeichert[tag] || {};
-    state[tag] = {
-      dept: (s.dept in DEPTS) ? s.dept : "",
-      ort: s.ort || "",
-      aufgaben: s.aufgaben || ""
-    };
-  });
-
+  /* ---------- Zustand ---------- */
+  var state = {};          /* tag -> {dept, ort, aufgaben} */
+  var dirty = {};          /* tag -> true, noch nicht gespeichert */
   var bearbeiten = false;
   var filter = "alle";
+
+  function leererPlan(){
+    state = {};
+    isoTage(START, ENDE).forEach(function(tag){
+      state[tag] = { dept: "", ort: "", aufgaben: "" };
+    });
+  }
+
+  function serverdatenUebernehmen(plan){
+    leererPlan();
+    Object.keys(plan || {}).forEach(function(tag){
+      if(!(tag in state)) return;
+      var d = plan[tag] || {};
+      state[tag] = {
+        dept: (d.dept in DEPTS) ? d.dept : "",
+        ort: String(d.ort || ""),
+        aufgaben: String(d.aufgaben || "")
+      };
+    });
+  }
 
   /* ---------- Rendern ---------- */
   function render(){
@@ -282,11 +291,17 @@
     filterAnwenden();
   }
 
+  function markiereDirty(tag){
+    dirty[tag] = true;
+    var btn = document.getElementById("btnSave");
+    btn.disabled = false;
+    btn.textContent = "Speichern (" + Object.keys(dirty).length + ")";
+  }
+
   function tagKarte(tag){
     var d = state[tag];
     var karte = document.createElement("article");
     karte.className = "tag";
-    karte.dataset.tag = tag;
     karte.dataset.dept = d.dept;
     var farbe = d.dept || "offen";
     karte.style.setProperty("--tag-farbe", "var(--" + farbe + ")");
@@ -310,7 +325,14 @@
       });
       sel.style.maxWidth = "320px";
       sel.style.marginLeft = "auto";
-      sel.addEventListener("change", function(){ d.dept = sel.value; render(); });
+      sel.addEventListener("change", function(){
+        d.dept = sel.value;
+        markiereDirty(tag);
+        var f = d.dept || "offen";
+        karte.style.setProperty("--tag-farbe", "var(--" + f + ")");
+        karte.style.setProperty("--tag-soft",  "var(--" + f + "-soft)");
+        karte.dataset.dept = d.dept;
+      });
       kopf.appendChild(sel);
     } else {
       var badge = document.createElement("span");
@@ -346,7 +368,10 @@
       }
       inp.value = d[key];
       inp.setAttribute("aria-label", label + " am " + fmt(tag));
-      inp.addEventListener("input", function(){ d[key] = inp.value; });
+      inp.addEventListener("input", function(){
+        d[key] = inp.value;
+        markiereDirty(tag);
+      });
       zeile.appendChild(inp);
     } else {
       var w = document.createElement("div");
@@ -373,34 +398,81 @@
     filterAnwenden();
   });
 
-  /* ---------- Bearbeiten & Export ---------- */
+  /* ---------- Server-Kommunikation ---------- */
+  var statusEl = document.getElementById("status");
+  function statusOk(text){ statusEl.className = "status"; statusEl.textContent = text; }
+  function statusFehler(text){ statusEl.className = "status fehler"; statusEl.textContent = text; }
+
+  function konfigFehlt(){
+    if(API_URL.indexOf("http") === 0) return false;
+    leererPlan(); render();
+    statusFehler("Konfiguration fehlt: API_URL in der index.html eintragen (siehe Kommentar im Quelltext).");
+    return true;
+  }
+
+  function laden(){
+    if(konfigFehlt()) return;
+    statusOk("Lade Plandaten …");
+    fetch(API_URL + "?t=" + Date.now(), { cache: "no-store" })
+      .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(plan){
+        serverdatenUebernehmen(plan);
+        dirty = {};
+        render();
+        statusOk("Stand: " + uhrzeit() + " Uhr");
+      })
+      .catch(function(err){
+        leererPlan(); render();
+        statusFehler("Plandaten konnten nicht geladen werden (" + err.message + "). Bitte „Neu laden“ klicken.");
+      });
+  }
+
+  function speichern(){
+    if(konfigFehlt()) return;
+    var tage = {};
+    Object.keys(dirty).forEach(function(tag){ tage[tag] = state[tag]; });
+    if(!Object.keys(tage).length) return;
+    var btn = document.getElementById("btnSave");
+    btn.disabled = true;
+    statusOk("Speichere …");
+    /* Body als einfacher Text-POST – vermeidet CORS-Preflight,
+       den Apps Script nicht beantworten kann */
+    fetch(API_URL, { method: "POST", body: JSON.stringify({ days: tage }) })
+      .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(plan){
+        serverdatenUebernehmen(plan);   /* Server-Stand inkl. eigener Änderungen */
+        dirty = {};
+        btn.textContent = "Speichern";
+        render();
+        statusOk("Gespeichert um " + uhrzeit() + " Uhr");
+      })
+      .catch(function(err){
+        btn.disabled = false;
+        statusFehler("Speichern fehlgeschlagen (" + err.message + "). Änderungen sind noch da – bitte erneut „Speichern“ klicken.");
+      });
+  }
+
+  /* ---------- Buttons ---------- */
   var btnEdit = document.getElementById("btnEdit");
   btnEdit.addEventListener("click", function(){
     bearbeiten = !bearbeiten;
     document.body.classList.toggle("editing", bearbeiten);
-    btnEdit.textContent = bearbeiten ? "Vorschau" : "Bearbeiten";
+    btnEdit.textContent = bearbeiten ? "Fertig" : "Bearbeiten";
     render();
+    if(!bearbeiten && Object.keys(dirty).length){
+      speichern();   /* beim Verlassen des Bearbeitungsmodus offene Änderungen sichern */
+    }
+  });
+  document.getElementById("btnSave").addEventListener("click", speichern);
+  document.getElementById("btnReload").addEventListener("click", laden);
+
+  window.addEventListener("beforeunload", function(ev){
+    if(Object.keys(dirty).length){ ev.preventDefault(); ev.returnValue = ""; }
   });
 
-  document.getElementById("btnSave").addEventListener("click", function(){
-    var warBearbeiten = bearbeiten;
-    bearbeiten = false; render();               // saubere Ansicht serialisieren
-    var klon = document.documentElement.cloneNode(true);
-    klon.querySelector("#schedule-data").textContent =
-      "\n" + JSON.stringify(state, null, 2) + "\n";
-    klon.querySelector("body").classList.remove("editing");
-    var html = "<!DOCTYPE html>\n" + klon.outerHTML;
-    var blob = new Blob([html], {type:"text/html;charset=utf-8"});
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "index.html";
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(a.href);
-    bearbeiten = warBearbeiten;
-    if(bearbeiten){ document.body.classList.add("editing"); render(); }
-  });
-
+  leererPlan();
   render();
+  laden();
 })();
 </script>
 </body>
