@@ -15,10 +15,10 @@
     --gruen:#2e7d32;          /* Newsletter-Grün */
     --gruen-dunkel:#1b5e20;
     --gruen-soft:#e6f1e7;
-    --laerm:#1565c0;   --laerm-soft:#e7eff9;
-    --strahlen:#b26a00; --strahlen-soft:#f9efdd;
-    --chemie:#6a1b9a;  --chemie-soft:#f1e7f7;
-    --offen:#8a948d;   --offen-soft:#edefee;
+    --laerm:#1565c0;   --laerm-soft:#e9f1fc;
+    --strahlen:#b45309; --strahlen-soft:#fdf1e0;
+    --chemie:#7b1fa2;  --chemie-soft:#f6eafa;
+    --offen:#8a948d;   --offen-soft:#ffffff;
     --radius:10px;
     --schatten:0 2px 8px rgba(0,0,0,0.07);
   }
@@ -94,21 +94,33 @@
   .status.fehler{color:#b3261e;font-family:inherit;font-size:13.5px}
 
   /* ---------- Wochen & Tage ---------- */
-  .woche{display:grid;grid-template-columns:64px 1fr;gap:0 18px;margin-top:34px}
-  .kw{
-    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
-    font-size:13px;color:var(--muted);
-    writing-mode:vertical-rl;transform:rotate(180deg);
-    border-right:2px solid var(--gruen-soft);padding:4px 0;
-    text-align:center;letter-spacing:.12em;
+  .woche{
+    background:#e6ece7;border:1px solid #d7e0d8;border-radius:12px;
+    padding:14px 14px 16px;margin-top:26px;
   }
+  .woche-kopf{
+    display:flex;align-items:center;gap:12px;
+    margin:2px 4px 14px;
+  }
+  .kw-pill{
+    background:var(--gruen);color:#fff;
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
+    font-size:12.5px;font-weight:500;letter-spacing:.08em;
+    padding:3px 12px;border-radius:999px;white-space:nowrap;
+  }
+  .woche-range{
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
+    font-size:13px;color:var(--muted);white-space:nowrap;
+  }
+  .woche-linie{flex:1;height:2px;background:#d0dcd2;border-radius:1px}
   .tage{display:flex;flex-direction:column;gap:12px}
 
   .tag{
-    background:var(--surface);border-radius:var(--radius);
+    background:var(--tag-soft,var(--surface));border-radius:var(--radius);
     box-shadow:var(--schatten);
-    border-left:5px solid var(--tag-farbe,var(--offen));
+    border-left:6px solid var(--tag-farbe,var(--offen));
     padding:14px 18px;transition:opacity .15s;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
   }
   .tag.gedimmt{opacity:.3}
   .tag-kopf{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px}
@@ -121,7 +133,8 @@
     margin-left:auto;
     font-weight:600;font-size:12.5px;
     padding:3px 11px;border-radius:999px;
-    background:var(--tag-soft,var(--offen-soft));color:var(--tag-farbe,var(--offen));
+    background:var(--tag-farbe,var(--offen));color:#fff;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
   }
   .tag-felder{margin-top:10px;display:grid;gap:6px}
   .feld{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:baseline}
@@ -148,9 +161,8 @@
 
   @media (max-width:600px){
     header{padding:24px 20px}
-    .woche{grid-template-columns:1fr;gap:8px}
-    .kw{writing-mode:horizontal-tb;transform:none;border-right:none;
-        border-bottom:2px solid var(--gruen-soft);text-align:left;padding:0 0 4px}
+    .woche{padding:10px 10px 12px}
+    .woche-range{white-space:normal}
     .feld{grid-template-columns:1fr}
     .badge{margin-left:0}
   }
@@ -158,6 +170,8 @@
     .toolbar,footer{display:none}
     body{background:#fff}
     header{background:var(--gruen);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .woche{background:#fff;border:1px solid var(--line)}
+    .kw-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .tag{break-inside:avoid;box-shadow:none;border:1px solid var(--line);
          border-left:5px solid var(--tag-farbe,var(--offen))}
   }
@@ -169,7 +183,7 @@
   <header>
     <div class="eyebrow">Land Steiermark · Abteilung 15</div>
     <h1>Praktikumsleitsystem</h1>
-    <div class="zeitraum">Sommer 2026 · 13.07. – 11.08. · Montag bis Freitag</div>
+    <div class="zeitraum">Sommer 2026 · 13.07. – 11.08.</div>
   </header>
 
   <div class="toolbar" id="toolbar">
@@ -235,6 +249,16 @@
     var t = isoDatum.split("-");
     return t[2] + "." + t[1] + "." + t[0].slice(2);
   }
+  var MONATE = ["Jänner","Februar","März","April","Mai","Juni",
+                "Juli","August","September","Oktober","November","Dezember"];
+  function bereichText(tage){
+    var a = tage[0].split("-"), b = tage[tage.length-1].split("-");
+    var t1 = parseInt(a[2],10), m1 = parseInt(a[1],10);
+    var t2 = parseInt(b[2],10), m2 = parseInt(b[1],10);
+    if(tage.length === 1) return t1 + ". " + MONATE[m1-1];
+    if(m1 === m2) return t1 + ".–" + t2 + ". " + MONATE[m1-1];
+    return t1 + ". " + MONATE[m1-1] + " – " + t2 + ". " + MONATE[m2-1];
+  }
   function uhrzeit(){
     var j = new Date();
     return ("0"+j.getHours()).slice(-2) + ":" + ("0"+j.getMinutes()).slice(-2);
@@ -278,13 +302,23 @@
     Object.keys(wochen).sort(function(a,b){return a-b}).forEach(function(kw){
       var sec = document.createElement("section");
       sec.className = "woche";
-      var kwEl = document.createElement("div");
-      kwEl.className = "kw";
-      kwEl.textContent = "KW " + kw;
+      var kopf = document.createElement("div");
+      kopf.className = "woche-kopf";
+      var pill = document.createElement("span");
+      pill.className = "kw-pill";
+      pill.textContent = "KW " + kw;
+      var range = document.createElement("span");
+      range.className = "woche-range";
+      range.textContent = bereichText(wochen[kw]);
+      var linie = document.createElement("span");
+      linie.className = "woche-linie";
+      kopf.appendChild(pill);
+      kopf.appendChild(range);
+      kopf.appendChild(linie);
       var tage = document.createElement("div");
       tage.className = "tage";
       wochen[kw].forEach(function(tag){ tage.appendChild(tagKarte(tag)); });
-      sec.appendChild(kwEl);
+      sec.appendChild(kopf);
       sec.appendChild(tage);
       plan.appendChild(sec);
     });
